@@ -1,9 +1,6 @@
 # Environment
 .env
 
-# Claude Code
-CLAUDE.md
-
 # Binaries
 family-finance-telegram-bot
 *.exe
