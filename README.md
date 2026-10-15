@@ -13,9 +13,30 @@ Telegram-бот для [family-finance-crm](https://github.com/koldassovnt/famil
 
 Нужен бэкенд версии 1.6.0 или новее (эндпоинты `/api/v1/bot/**`) с тем же `BOT_API_TOKEN`.
 
-```sh
-cp .env.example .env   # заполнить TELEGRAM_BOT_TOKEN и BOT_API_TOKEN
+Создайте в корне проекта файл `.env` (он есть в `.gitignore`):
+
+```env
+# Обязательные.
+# Токен от @BotFather.
+TELEGRAM_BOT_TOKEN=
+# Общий секрет, тот же, что в .env бэкенда.
+BOT_API_TOKEN=
+
+# Необязательные, указаны значения по умолчанию.
+# Адрес бэкенда без /api/v1; в Docker его переопределяет compose.yaml.
+BACKEND_URL=http://localhost:8080
+# Часовой пояс для «сегодня» и времени напоминания.
+APP_TIMEZONE=Asia/Almaty
+# Ежедневное напоминание о платежах, HH:MM.
+NOTIFY_AT=10:00
+
+# Только для webhook-режима в проде.
+# WEBHOOK_URL=https://bot.example.com/telegram
+# WEBHOOK_SECRET=
+# LISTEN_ADDR=:8081
 ```
+
+Для `BOT_API_TOKEN` подойдёт любая длинная случайная строка, например из `openssl rand -hex 32`.
 
 ### В Docker (основной способ)
 
