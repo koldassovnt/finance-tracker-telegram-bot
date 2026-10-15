@@ -1,0 +1,10 @@
+.env
+.git
+.claude
+.idea
+.vscode
+CLAUDE.md
+*.exe
+*.test
+*.out
+family-finance-telegram-bot

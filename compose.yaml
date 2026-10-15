@@ -1,0 +1,23 @@
+# `docker compose up -d --build` builds and starts the bot. The backend's
+# compose (family-finance-crm) must be up first: the bot joins its network and
+# calls the app container by name.
+services:
+  bot:
+    image: family-finance-telegram-bot:latest
+    build: .
+    container_name: family-finance-telegram-bot
+    env_file: .env
+    environment:
+      # .env keeps a host address for running outside Docker; inside the
+      # backend's network the app is reachable by its container name.
+      BACKEND_URL: http://family-finance-app:8080
+      TZ: Asia/Almaty
+    restart: unless-stopped
+    networks:
+      - family-finance
+
+networks:
+  family-finance:
+    # Created and pinned by family-finance-crm's compose.yaml.
+    name: family-finance-crm_default
+    external: true

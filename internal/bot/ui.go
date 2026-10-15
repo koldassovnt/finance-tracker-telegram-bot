@@ -1,0 +1,119 @@
+package bot
+
+import (
+	"html"
+
+	"github.com/go-telegram/bot/models"
+)
+
+type action int
+
+const (
+	actExpense action = iota + 1
+	actIncome
+	actTransfer
+	actBills
+	actShopping
+	actSummary
+)
+
+// Main menu buttons; their text is what Telegram sends back when tapped.
+const (
+	btnExpense  = "➖ Расход"
+	btnIncome   = "➕ Доход"
+	btnTransfer = "🔁 Перевод"
+	btnBills    = "📅 Платежи"
+	btnShopping = "🛒 Покупки"
+	btnSummary  = "📊 Итоги месяца"
+)
+
+var menuActions = map[string]action{
+	btnExpense:  actExpense,
+	btnIncome:   actIncome,
+	btnTransfer: actTransfer,
+	btnBills:    actBills,
+	btnShopping: actShopping,
+	btnSummary:  actSummary,
+}
+
+var commandActions = map[string]action{
+	"expense":  actExpense,
+	"income":   actIncome,
+	"transfer": actTransfer,
+	"bills":    actBills,
+	"shop":     actShopping,
+	"summary":  actSummary,
+}
+
+var commands = []models.BotCommand{
+	{Command: "expense", Description: "Записать расход"},
+	{Command: "income", Description: "Записать доход"},
+	{Command: "transfer", Description: "Перевод между своими счетами"},
+	{Command: "bills", Description: "Неоплаченные платежи"},
+	{Command: "shop", Description: "Список покупок"},
+	{Command: "summary", Description: "Итоги месяца"},
+	{Command: "cancel", Description: "Отменить текущее действие"},
+	{Command: "start", Description: "Привязать аккаунт"},
+	{Command: "help", Description: "Что умеет бот"},
+}
+
+var mainMenu = &models.ReplyKeyboardMarkup{
+	Keyboard: [][]models.KeyboardButton{
+		{{Text: btnExpense}, {Text: btnIncome}, {Text: btnTransfer}},
+		{{Text: btnBills}, {Text: btnShopping}},
+		{{Text: btnSummary}},
+	},
+	ResizeKeyboard: true,
+	IsPersistent:   true,
+}
+
+// Callback data prefixes, "<kind>:<arg>". Telegram caps callback data at 64
+// bytes; the longest here is "p:t:" plus a 36-character UUID.
+const (
+	cbCancel    = "x"
+	cbAccount   = "a"
+	cbToAccount = "to"
+	cbCategory  = "c"
+	cbBillPaid  = "b"
+	cbPurchase  = "p"
+)
+
+// noCategory is the cbCategory argument for "no category".
+const noCategory = "-"
+
+// helpText takes the daily reminder time, "10:00".
+const helpText = `<b>Что умеет бот</b>
+
+➖ <b>Расход</b> / ➕ <b>Доход</b>: сумма, счёт и категория. Можно просто написать «5000 обед», и это запишется как расход.
+🔁 <b>Перевод</b>: между своими счетами, в том числе в разных валютах.
+📅 <b>Платежи</b>: неоплаченные платежи до конца месяца, отметка «оплачено».
+🛒 <b>Покупки</b>: семейный и личный списки.
+📊 <b>Итоги месяца</b>: доходы, расходы и крупнейшие категории.
+
+Каждый день в %s я пишу, какие платежи нужно оплатить сегодня.
+/cancel отменяет текущее действие.`
+
+func cancelRow() []models.InlineKeyboardButton {
+	return []models.InlineKeyboardButton{{Text: "✖ Отмена", CallbackData: cbCancel}}
+}
+
+func cancelKeyboard() *models.InlineKeyboardMarkup {
+	return &models.InlineKeyboardMarkup{InlineKeyboard: [][]models.InlineKeyboardButton{cancelRow()}}
+}
+
+// grid lays buttons out perRow to a row.
+func grid(buttons []models.InlineKeyboardButton, perRow int) [][]models.InlineKeyboardButton {
+	var rows [][]models.InlineKeyboardButton
+	for len(buttons) > 0 {
+		n := min(perRow, len(buttons))
+		rows = append(rows, buttons[:n])
+		buttons = buttons[n:]
+	}
+	return rows
+}
+
+func escape(s string) string { return html.EscapeString(s) }
+
+// plainText turns an escaped, tag-free HTML message back into plain text, for
+// callback popups, which don't support markup.
+func plainText(s string) string { return html.UnescapeString(s) }

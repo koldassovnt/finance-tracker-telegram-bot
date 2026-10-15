@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go build:*)",
+      "Bash(go run:*)",
+      "Bash(go test:*)",
+      "Bash(go vet:*)",
+      "Bash(go mod tidy)",
+      "Bash(go mod download)",
+      "Bash(golangci-lint run:*)",
+      "Bash(gofmt:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git status)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(go install:*)",
+      "Bash(curl:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./**/*secret*)",
+      "Read(./**/*token*)",
+      "Bash(rm -rf:*)"
+    ]
+  },
+  "env": {
+    "GOFLAGS": "-mod=mod",
+    "CGO_ENABLED": "0"
+  }
+}
