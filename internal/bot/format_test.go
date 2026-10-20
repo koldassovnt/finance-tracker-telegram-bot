@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-telegram/bot/models"
 
@@ -150,5 +151,51 @@ func TestTopicAndRateText(t *testing.T) {
 	sess.marketRate = ""
 	if kb := rateKeyboard(sess, ""); len(kb.InlineKeyboard) != 1 || kb.InlineKeyboard[0][0].CallbackData != cbCancel {
 		t.Errorf("without a market rate the keyboard should only cancel: %+v", kb.InlineKeyboard)
+	}
+}
+
+func TestRenderToday(t *testing.T) {
+	accounts := map[string]backend.Account{
+		"kzt": {ID: "kzt", Name: "Kaspi <Gold>", Currency: "KZT"},
+		"usd": {ID: "usd", Name: "Наличные", Currency: "USD"},
+	}
+	now := time.Date(2026, 10, 20, 17, 30, 0, 0, time.UTC)
+	txs := []backend.Transaction{
+		{Type: backend.TypeExpense, AccountID: "kzt", Amount: "5000.0000", Currency: "KZT", AmountKZT: "5000.0000",
+			Category: &backend.Category{Name: "Кафе"}, Note: "обед"},
+		{Type: backend.TypeExpense, AccountID: "usd", Amount: "25.0000", Currency: "USD", AmountKZT: "11962.5000",
+			Topic: &backend.TopicRef{Name: "Турция"}},
+		{Type: backend.TypeIncome, AccountID: "kzt", Amount: "10000.1000", Currency: "KZT", AmountKZT: "10000.1000"},
+		{Type: backend.TypeTransfer, AccountID: "usd", ToAccountID: "kzt", Amount: "100.0000", Currency: "USD",
+			ToAmount: "47850.0000", AmountKZT: "47850.0000"},
+	}
+	text := renderToday(now, txs, accounts)
+	for _, want := range []string{
+		"Сегодня, 20 октября",
+		"➖ <b>5\u00a0000 ₸</b> · Kaspi &lt;Gold&gt; · Кафе · 💬 обед",
+		"➖ <b>25 $</b> (≈ 11\u00a0962,50 ₸) · Наличные · 🧳 Турция",
+		"🔁 <b>100 $</b> · Наличные → Kaspi &lt;Gold&gt; (47\u00a0850 ₸)",
+		// Exact decimals, and the transfer counts in neither total.
+		"Доходы: <b>10\u00a0000,10 ₸</b>",
+		"Расходы: <b>16\u00a0962,50 ₸</b>",
+		"Доходы − расходы: <b>-6\u00a0962,40 ₸</b>",
+		"Переводы между счетами в итоги не входят",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("today missing %q:\n%s", want, text)
+		}
+	}
+
+	if empty := renderToday(now, nil, accounts); !strings.Contains(empty, "Операций пока нет") || strings.Contains(empty, "Переводы") {
+		t.Errorf("empty day:\n%s", empty)
+	}
+
+	many := make([]backend.Transaction, 300)
+	for i := range many {
+		many[i] = backend.Transaction{Type: backend.TypeIncome, AccountID: "kzt", Amount: "1", Currency: "KZT", AmountKZT: "1", Note: strings.Repeat("ж", 200)}
+	}
+	long := renderToday(now, many, accounts)
+	if utf8.RuneCountInString(long) > 4096 || !strings.Contains(long, "…и ещё") || !strings.Contains(long, "Доходы: <b>300 ₸</b>") {
+		t.Errorf("a long day should be cut but totalled in full (%d runes):\n%s", utf8.RuneCountInString(long), long[len(long)-300:])
 	}
 }

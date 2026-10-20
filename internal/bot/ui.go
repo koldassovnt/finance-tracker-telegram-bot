@@ -17,6 +17,7 @@ const (
 	actSummary
 	actBalance
 	actTopicExpense
+	actToday
 )
 
 // Main menu buttons; their text is what Telegram sends back when tapped.
@@ -29,6 +30,7 @@ const (
 	btnSummary  = "📊 Итоги месяца"
 	btnBalance  = "💰 Баланс"
 	btnTopic    = "🧳 Расход по теме"
+	btnToday    = "📆 Сегодня"
 )
 
 var menuActions = map[string]action{
@@ -40,6 +42,7 @@ var menuActions = map[string]action{
 	btnSummary:  actSummary,
 	btnBalance:  actBalance,
 	btnTopic:    actTopicExpense,
+	btnToday:    actToday,
 }
 
 var commandActions = map[string]action{
@@ -51,6 +54,7 @@ var commandActions = map[string]action{
 	"summary":  actSummary,
 	"balance":  actBalance,
 	"topic":    actTopicExpense,
+	"today":    actToday,
 }
 
 var commands = []models.BotCommand{
@@ -60,6 +64,7 @@ var commands = []models.BotCommand{
 	{Command: "transfer", Description: "Перевод между своими счетами"},
 	{Command: "bills", Description: "Неоплаченные платежи"},
 	{Command: "shop", Description: "Список покупок"},
+	{Command: "today", Description: "Операции и итоги за сегодня"},
 	{Command: "summary", Description: "Итоги месяца"},
 	{Command: "balance", Description: "Баланс счёта"},
 	{Command: "cancel", Description: "Отменить текущее действие"},
@@ -72,7 +77,7 @@ var mainMenu = &models.ReplyKeyboardMarkup{
 		{{Text: btnExpense}, {Text: btnIncome}, {Text: btnTransfer}},
 		{{Text: btnTopic}},
 		{{Text: btnBills}, {Text: btnShopping}},
-		{{Text: btnSummary}, {Text: btnBalance}},
+		{{Text: btnToday}, {Text: btnSummary}, {Text: btnBalance}},
 	},
 	ResizeKeyboard: true,
 	IsPersistent:   true,
@@ -91,6 +96,7 @@ const (
 	cbBalance   = "bal"
 	cbTopic     = "tp"
 	cbRate      = "r"
+	cbToday     = "td"
 )
 
 // noCategory is the cbCategory argument for "no category".
@@ -104,6 +110,7 @@ const helpText = `<b>Что умеет бот</b>
 🔁 <b>Перевод</b>: между своими счетами, в том числе в разных валютах.
 📅 <b>Платежи</b>: неоплаченные платежи до конца месяца, отметка «оплачено».
 🛒 <b>Покупки</b>: семейный и личный списки.
+📆 <b>Сегодня</b>: операции за день, доходы, расходы и их разница.
 📊 <b>Итоги месяца</b>: доходы, расходы и крупнейшие категории.
 💰 <b>Баланс</b>: текущий остаток на выбранном счёте.
 

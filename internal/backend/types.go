@@ -111,15 +111,27 @@ type CreateTransactionRequest struct {
 	Note         string      `json:"note,omitempty"`
 }
 
-// Transaction is a recorded transaction.
+// Transaction is a recorded transaction. Amount is in the account's Currency;
+// AmountKZT is what every total is computed from.
 type Transaction struct {
-	ID         string      `json:"id"`
-	Type       string      `json:"type"`
-	AccountID  string      `json:"accountId"`
-	Amount     json.Number `json:"amount"`
-	Currency   string      `json:"currency"`
-	AmountKZT  json.Number `json:"amountKzt"`
-	OccurredOn string      `json:"occurredOn"`
+	ID          string      `json:"id"`
+	Type        string      `json:"type"`
+	AccountID   string      `json:"accountId"`
+	ToAccountID string      `json:"toAccountId"`
+	Amount      json.Number `json:"amount"`
+	Currency    string      `json:"currency"`
+	ToAmount    json.Number `json:"toAmount"`
+	AmountKZT   json.Number `json:"amountKzt"`
+	OccurredOn  string      `json:"occurredOn"`
+	Category    *Category   `json:"category"`
+	Topic       *TopicRef   `json:"topic"`
+	Note        string      `json:"note"`
+}
+
+// TopicRef is the short form of a topic embedded in a transaction.
+type TopicRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // Topic groups transactions of one undertaking, such as a trip. Its totals

@@ -196,6 +196,8 @@ func (a *App) runAction(ctx context.Context, chatID, userID int64, act action) {
 		a.showBalancePicker(ctx, chatID, 0, userID)
 	case actTopicExpense:
 		a.startTopicExpense(ctx, chatID, userID)
+	case actToday:
+		a.showToday(ctx, chatID, 0, userID)
 	}
 }
 
@@ -225,6 +227,9 @@ func (a *App) onCallback(ctx context.Context, cq *models.CallbackQuery) {
 		a.onTopicChoice(ctx, cq, chatID, msgID, userID, arg)
 	case cbRate:
 		a.onMarketRate(ctx, cq, chatID, msgID, userID)
+	case cbToday:
+		a.answer(ctx, cq.ID, "", false)
+		a.showToday(ctx, chatID, msgID, userID)
 	default:
 		a.answer(ctx, cq.ID, "Неизвестная кнопка.", false)
 	}

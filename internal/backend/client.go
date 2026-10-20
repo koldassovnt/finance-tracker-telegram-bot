@@ -78,6 +78,15 @@ func (c *Client) CreateTransaction(ctx context.Context, tgUserID int64, req Crea
 	return out, err
 }
 
+// Transactions returns the member's transactions dated from..to inclusive,
+// newest first.
+func (c *Client) Transactions(ctx context.Context, tgUserID int64, from, to time.Time) ([]Transaction, error) {
+	var out []Transaction
+	q := url.Values{"from": {from.Format(time.DateOnly)}, "to": {to.Format(time.DateOnly)}}
+	err := c.do(ctx, http.MethodGet, "/transactions", tgUserID, q, nil, &out)
+	return out, err
+}
+
 // MonthlySummary returns the member's income and expense totals for month (YYYY-MM).
 func (c *Client) MonthlySummary(ctx context.Context, tgUserID int64, month string) (MonthlySummary, error) {
 	var out MonthlySummary
