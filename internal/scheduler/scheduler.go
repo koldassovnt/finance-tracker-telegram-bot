@@ -17,12 +17,8 @@ func Daily(ctx context.Context, loc *time.Location, offset, timeout time.Duratio
 		next := NextRun(time.Now().In(loc), offset)
 		slog.Info("next daily run scheduled", "at", next)
 
-		timer := time.NewTimer(time.Until(next))
-		select {
-		case <-ctx.Done():
-			timer.Stop()
+		if !sleepUntil(ctx, next) {
 			return
-		case <-timer.C:
 		}
 
 		runCtx, cancel := context.WithTimeout(ctx, timeout)
@@ -31,6 +27,29 @@ func Daily(ctx context.Context, loc *time.Location, offset, timeout time.Duratio
 		}
 		cancel()
 	}
+}
+
+// until reports how long remains until t. Tests replace it to simulate a timer
+// that fires before the wall clock reaches t.
+var until = time.Until
+
+// sleepUntil blocks until the wall clock reaches t and reports true, or returns
+// false once ctx is done. Timers run on the monotonic clock, which can drift
+// from the wall clock (e.g. inside the Docker Desktop VM) and fire a few
+// seconds early; running then would make NextRun return the same t again and
+// the job would run twice. t comes from time.Date and carries no monotonic
+// reading, so time.Until compares wall clocks.
+func sleepUntil(ctx context.Context, t time.Time) bool {
+	for d := until(t); d > 0; d = until(t) {
+		timer := time.NewTimer(d)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return false
+		case <-timer.C:
+		}
+	}
+	return ctx.Err() == nil
 }
 
 // NextRun returns the first moment strictly after now that is offset after a
