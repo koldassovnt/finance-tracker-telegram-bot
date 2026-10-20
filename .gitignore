@@ -2,7 +2,7 @@
 .env
 
 # Binaries
-family-finance-telegram-bot
+/family-finance-telegram-bot
 *.exe
 
 # Go

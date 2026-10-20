@@ -7,6 +7,9 @@
 - Use context.Context as the first parameter for any function that does I/O or calls the Telegram API.
 - Run `go vet` and `golangci-lint run` before considering a change done.
 
+## Deployment
+- Deploy with `./deploy.sh`, never a bare `docker compose up --build`. The image is `family-finance-telegram-bot:<version>`, the number in the `VERSION` file, which the script copies into `.env` as `VERSION` — bump it for every deploy.
+
 ## Telegram Bot API
 - Never hardcode the bot token — read it from an environment variable (e.g. `TELEGRAM_BOT_TOKEN`).
 - Use a maintained client library (e.g. `go-telegram-bot-api` or `telebot`) rather than raw HTTP calls, unless there's a specific reason not to.

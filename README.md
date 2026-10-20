@@ -41,9 +41,13 @@ NOTIFY_AT=10:00
 ### В Docker (основной способ)
 
 ```sh
-docker compose up -d --build
+./deploy.sh
 docker compose logs -f bot
 ```
+
+Версия бота записана только в файле `VERSION`, и это же тег образа `family-finance-telegram-bot:<версия>`. Перед каждым деплоем увеличивайте её: `deploy.sh` не пересобирает уже существующую версию, чтобы не затереть образ для отката. Скрипт копирует версию в `.env` (`VERSION=…`), откуда её берёт compose, и запускает `docker compose up -d --build`.
+
+Откат: укажите в `.env` старую версию, образ которой ещё есть на машине (`docker images family-finance-telegram-bot`), и выполните `docker compose up -d` без `--build`.
 
 Сначала должен быть поднят compose бэкенда: бот подключается к его сети `family-finance-crm_default` и обращается к `http://family-finance-app:8080`. `BACKEND_URL` из `.env` внутри контейнера не используется, его переопределяет `compose.yaml`.
 

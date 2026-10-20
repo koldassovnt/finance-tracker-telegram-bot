@@ -1,10 +1,16 @@
-# `docker compose up -d --build` builds and starts the bot. The backend's
-# compose (family-finance-crm) must be up first: the bot joins its network and
-# calls the app container by name.
+# `./deploy.sh` builds and starts the bot. The backend's compose
+# (family-finance-crm) must be up first: the bot joins its network and calls
+# the app container by name.
 services:
   bot:
-    image: family-finance-telegram-bot:latest
-    build: .
+    # VERSION is the content of the VERSION file; ./deploy.sh copies it to
+    # .env. Rolling back is setting it to an older tag that is still on the
+    # host and `docker compose up -d` without --build.
+    image: family-finance-telegram-bot:${VERSION:?run ./deploy.sh, which writes VERSION to .env}
+    build:
+      context: .
+      args:
+        VERSION: ${VERSION:?run ./deploy.sh, which writes VERSION to .env}
     container_name: family-finance-telegram-bot
     env_file: .env
     environment:
