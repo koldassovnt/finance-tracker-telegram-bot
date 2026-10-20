@@ -19,6 +19,8 @@ const (
 	stepToAmount          // text: amount received, for a cross-currency transfer
 	stepCategory          // button: category
 	stepPurchaseName      // text: shopping list items, one per line
+	stepTopic             // button: topic for an expense
+	stepRate              // text or button: KZT rate of a foreign-currency account
 )
 
 // session is one user's dialog in progress. Sessions live in memory only; a
@@ -36,6 +38,12 @@ type session struct {
 	toAccount  *backend.Account
 	category   *backend.Category
 	toAmount   json.Number
+	topics     []backend.Topic
+	topic      *backend.Topic
+	// rate is KZT per unit of account's currency, set only for a non-KZT
+	// account; marketRate is the stored rate offered as a button for it.
+	rate       json.Number
+	marketRate json.Number
 
 	// Shopping list dialog.
 	isFamily bool

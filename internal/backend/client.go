@@ -85,6 +85,22 @@ func (c *Client) MonthlySummary(ctx context.Context, tgUserID int64, month strin
 	return out, err
 }
 
+// ActiveTopics returns the member's own active topics, the ones offered for new
+// transactions.
+func (c *Client) ActiveTopics(ctx context.Context, tgUserID int64) ([]Topic, error) {
+	var out []Topic
+	q := url.Values{"status": {TopicActive}, "scope": {"OWN"}}
+	err := c.do(ctx, http.MethodGet, "/topics", tgUserID, q, nil, &out)
+	return out, err
+}
+
+// ExchangeRates returns the latest stored KZT rate of each account currency.
+func (c *Client) ExchangeRates(ctx context.Context, tgUserID int64) ([]ExchangeRate, error) {
+	var out []ExchangeRate
+	err := c.do(ctx, http.MethodGet, "/market-data/rates", tgUserID, nil, nil, &out)
+	return out, err
+}
+
 // UnpaidBills returns all of the member's own unpaid bills, past and future,
 // earliest due date first.
 func (c *Client) UnpaidBills(ctx context.Context, tgUserID int64) ([]Bill, error) {

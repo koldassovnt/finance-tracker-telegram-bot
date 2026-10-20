@@ -98,3 +98,44 @@ func TestCommand(t *testing.T) {
 		}
 	}
 }
+
+func TestParseRate(t *testing.T) {
+	tests := []struct {
+		in      string
+		want    json.Number
+		wantErr bool
+	}{
+		{in: "478", want: "478"},
+		{in: "478,5", want: "478.5"},
+		{in: " 478.120000 ", want: "478.12"},
+		{in: "0,0213", want: "0.0213"},
+		{in: "005.50", want: "5.5"},
+		{in: "0", wantErr: true},
+		{in: "0,000000", wantErr: true},
+		{in: "-478", wantErr: true},
+		{in: "1,1234567", wantErr: true},
+		{in: "478 тенге", wantErr: true},
+		{in: "1 000", wantErr: true},
+		{in: "", wantErr: true},
+	}
+	for _, tt := range tests {
+		got, err := parseRate(tt.in)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("parseRate(%q) = %q; want error", tt.in, got)
+			}
+			continue
+		}
+		if err != nil || got != tt.want {
+			t.Errorf("parseRate(%q) = %q, %v; want %q", tt.in, got, err, tt.want)
+		}
+	}
+
+	// Stored market rates may carry more places than the backend keeps.
+	if got, err := normalizeRate("478.1234567"); err != nil || got != "478.123457" {
+		t.Errorf("normalizeRate rounds to %q, %v; want 478.123457", got, err)
+	}
+	if _, err := normalizeRate("0.0000001"); err == nil {
+		t.Error("normalizeRate should reject a rate that rounds to zero")
+	}
+}

@@ -144,7 +144,9 @@ func (a *App) onMessage(ctx context.Context, msg *models.Message) {
 		a.onToAmount(ctx, chatID, userID, sess, text)
 	case stepPurchaseName:
 		a.onPurchaseNames(ctx, chatID, userID, sess, msg.Text)
-	case stepAccount, stepToAccount, stepCategory:
+	case stepRate:
+		a.onRate(ctx, chatID, userID, sess, text)
+	case stepAccount, stepToAccount, stepCategory, stepTopic:
 		a.send(ctx, chatID, "Выберите вариант кнопкой выше или нажмите «Отмена».", nil)
 	default:
 		// A bare amount starts an expense: "5000 обед" is the most common entry.
@@ -192,6 +194,8 @@ func (a *App) runAction(ctx context.Context, chatID, userID int64, act action) {
 		a.showSummary(ctx, chatID, userID)
 	case actBalance:
 		a.showBalancePicker(ctx, chatID, 0, userID)
+	case actTopicExpense:
+		a.startTopicExpense(ctx, chatID, userID)
 	}
 }
 
@@ -217,6 +221,10 @@ func (a *App) onCallback(ctx context.Context, cq *models.CallbackQuery) {
 		a.onPurchaseCallback(ctx, cq, chatID, msgID, userID, arg)
 	case cbBalance:
 		a.onBalanceCallback(ctx, cq, chatID, msgID, userID, arg)
+	case cbTopic:
+		a.onTopicChoice(ctx, cq, chatID, msgID, userID, arg)
+	case cbRate:
+		a.onMarketRate(ctx, cq, chatID, msgID, userID)
 	default:
 		a.answer(ctx, cq.ID, "Неизвестная кнопка.", false)
 	}

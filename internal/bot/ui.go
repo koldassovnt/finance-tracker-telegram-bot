@@ -16,6 +16,7 @@ const (
 	actShopping
 	actSummary
 	actBalance
+	actTopicExpense
 )
 
 // Main menu buttons; their text is what Telegram sends back when tapped.
@@ -27,6 +28,7 @@ const (
 	btnShopping = "🛒 Покупки"
 	btnSummary  = "📊 Итоги месяца"
 	btnBalance  = "💰 Баланс"
+	btnTopic    = "🧳 Расход по теме"
 )
 
 var menuActions = map[string]action{
@@ -37,6 +39,7 @@ var menuActions = map[string]action{
 	btnShopping: actShopping,
 	btnSummary:  actSummary,
 	btnBalance:  actBalance,
+	btnTopic:    actTopicExpense,
 }
 
 var commandActions = map[string]action{
@@ -47,11 +50,13 @@ var commandActions = map[string]action{
 	"shop":     actShopping,
 	"summary":  actSummary,
 	"balance":  actBalance,
+	"topic":    actTopicExpense,
 }
 
 var commands = []models.BotCommand{
 	{Command: "expense", Description: "Записать расход"},
 	{Command: "income", Description: "Записать доход"},
+	{Command: "topic", Description: "Расход по теме, например поездке"},
 	{Command: "transfer", Description: "Перевод между своими счетами"},
 	{Command: "bills", Description: "Неоплаченные платежи"},
 	{Command: "shop", Description: "Список покупок"},
@@ -65,6 +70,7 @@ var commands = []models.BotCommand{
 var mainMenu = &models.ReplyKeyboardMarkup{
 	Keyboard: [][]models.KeyboardButton{
 		{{Text: btnExpense}, {Text: btnIncome}, {Text: btnTransfer}},
+		{{Text: btnTopic}},
 		{{Text: btnBills}, {Text: btnShopping}},
 		{{Text: btnSummary}, {Text: btnBalance}},
 	},
@@ -73,7 +79,8 @@ var mainMenu = &models.ReplyKeyboardMarkup{
 }
 
 // Callback data prefixes, "<kind>:<arg>". Telegram caps callback data at 64
-// bytes; the longest here is "bal:" or "p:t:" plus a 36-character UUID.
+// bytes; the longest here is "bal:" or "p:t:" plus a 36-character UUID. cbRate
+// carries no argument: the rate it accepts is the one kept in the session.
 const (
 	cbCancel    = "x"
 	cbAccount   = "a"
@@ -82,6 +89,8 @@ const (
 	cbBillPaid  = "b"
 	cbPurchase  = "p"
 	cbBalance   = "bal"
+	cbTopic     = "tp"
+	cbRate      = "r"
 )
 
 // noCategory is the cbCategory argument for "no category".
@@ -91,12 +100,14 @@ const noCategory = "-"
 const helpText = `<b>Что умеет бот</b>
 
 ➖ <b>Расход</b> / ➕ <b>Доход</b>: сумма, счёт и категория. Можно просто написать «5000 обед», и это запишется как расход.
+🧳 <b>Расход по теме</b>: выберите тему из приложения, например поездку, и расход попадёт в её итоги.
 🔁 <b>Перевод</b>: между своими счетами, в том числе в разных валютах.
 📅 <b>Платежи</b>: неоплаченные платежи до конца месяца, отметка «оплачено».
 🛒 <b>Покупки</b>: семейный и личный списки.
 📊 <b>Итоги месяца</b>: доходы, расходы и крупнейшие категории.
 💰 <b>Баланс</b>: текущий остаток на выбранном счёте.
 
+Для счёта не в тенге я спрошу курс: сколько тенге стоит 1 единица валюты.
 Каждый день в %s я пишу, какие платежи нужно оплатить сегодня.
 /cancel отменяет текущее действие.`
 

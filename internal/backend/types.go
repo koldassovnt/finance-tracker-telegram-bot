@@ -21,6 +21,13 @@ const (
 // AccessOwner marks a resource the caller owns, as opposed to one shared with them.
 const AccessOwner = "OWNER"
 
+// BaseCurrency is the backend's accounting currency. A transaction on an
+// account in any other currency must carry its KZT exchange rate.
+const BaseCurrency = "KZT"
+
+// TopicActive is the status of a topic offered for new transactions.
+const TopicActive = "ACTIVE"
+
 // LinkRequest binds a Telegram account to the user who has that username.
 type LinkRequest struct {
 	TelegramUsername string `json:"telegramUsername"`
@@ -97,7 +104,11 @@ type CreateTransactionRequest struct {
 	CategoryID  string      `json:"categoryId,omitempty"`
 	ToAccountID string      `json:"toAccountId,omitempty"`
 	ToAmount    json.Number `json:"toAmount,omitempty"`
-	Note        string      `json:"note,omitempty"`
+	// ExchangeRate is KZT per one unit of the account's currency; required
+	// unless the account is in BaseCurrency.
+	ExchangeRate json.Number `json:"exchangeRate,omitempty"`
+	TopicID      string      `json:"topicId,omitempty"`
+	Note         string      `json:"note,omitempty"`
 }
 
 // Transaction is a recorded transaction.
@@ -107,7 +118,27 @@ type Transaction struct {
 	AccountID  string      `json:"accountId"`
 	Amount     json.Number `json:"amount"`
 	Currency   string      `json:"currency"`
+	AmountKZT  json.Number `json:"amountKzt"`
 	OccurredOn string      `json:"occurredOn"`
+}
+
+// Topic groups transactions of one undertaking, such as a trip. Its totals
+// are in KZT; PlannedAmount and Remaining are empty when nothing was planned.
+type Topic struct {
+	ID            string      `json:"id"`
+	Name          string      `json:"name"`
+	Status        string      `json:"status"`
+	PlannedAmount json.Number `json:"plannedAmount"`
+	Spent         json.Number `json:"spent"`
+	Remaining     json.Number `json:"remaining"`
+}
+
+// ExchangeRate is the latest stored KZT rate of a currency, fetched daily.
+type ExchangeRate struct {
+	Currency string      `json:"currency"`
+	RateKZT  json.Number `json:"rateKzt"`
+	// FetchedAt is an RFC 3339 instant.
+	FetchedAt string `json:"fetchedAt"`
 }
 
 // MonthlySummary is income and expense totals for a month, in Currency.

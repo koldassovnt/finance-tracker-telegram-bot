@@ -3,6 +3,7 @@ package bot
 import (
 	"cmp"
 	"context"
+	"log/slog"
 	"slices"
 	"strings"
 	"time"
@@ -64,7 +65,7 @@ func (a *App) onAmount(ctx context.Context, chatID, userID int64, sess session, 
 	sess.amount, sess.note, sess.accounts = amount, note, accounts
 	if !isTransfer && len(accounts) == 1 {
 		sess.account = &accounts[0]
-		a.askCategory(ctx, chatID, 0, userID, sess)
+		a.afterAccount(ctx, chatID, 0, userID, sess)
 		return
 	}
 
@@ -95,13 +96,7 @@ func (a *App) onTransactionChoice(ctx context.Context, cq *models.CallbackQuery,
 			return
 		}
 		sess.account = acc
-		if sess.txType != backend.TypeTransfer {
-			a.askCategory(ctx, chatID, msgID, userID, sess)
-			return
-		}
-		sess.step = stepToAccount
-		a.sessions.set(userID, sess)
-		a.edit(ctx, chatID, msgID, draftText(sess)+"\n\nНа какой счёт?", accountsKeyboard(sess.accounts, cbToAccount, acc.ID))
+		a.afterAccount(ctx, chatID, msgID, userID, sess)
 
 	case cbToAccount:
 		acc := findAccount(sess.accounts, arg)
@@ -132,6 +127,92 @@ func (a *App) onTransactionChoice(ctx context.Context, cq *models.CallbackQuery,
 		}
 		a.createTransaction(ctx, chatID, msgID, userID, sess)
 	}
+}
+
+// afterAccount continues once the source account is known: its KZT rate if it
+// is in another currency, then the destination (transfer) or category.
+func (a *App) afterAccount(ctx context.Context, chatID int64, msgID int, userID int64, sess session) {
+	if sess.account.Currency != backend.BaseCurrency && sess.rate == "" {
+		a.askRate(ctx, chatID, msgID, userID, sess)
+		return
+	}
+	if sess.txType != backend.TypeTransfer {
+		a.askCategory(ctx, chatID, msgID, userID, sess)
+		return
+	}
+	sess.step = stepToAccount
+	a.sessions.set(userID, sess)
+	a.show(ctx, chatID, msgID, draftText(sess)+"\n\nНа какой счёт?", accountsKeyboard(sess.accounts, cbToAccount, sess.account.ID))
+}
+
+// askRate asks how many tenge one unit of the account's currency is worth,
+// offering the backend's stored daily rate as a button when it has one.
+func (a *App) askRate(ctx context.Context, chatID int64, msgID int, userID int64, sess session) {
+	cur := sess.account.Currency
+	sess.marketRate, sess.step = "", stepRate
+	var fetchedAt string
+	rates, err := a.api.ExchangeRates(ctx, userID)
+	if err != nil {
+		// The rate can still be typed in; only the shortcut is lost.
+		slog.Warn("fetch exchange rates", "err", err)
+	}
+	for _, r := range rates {
+		if r.Currency != cur {
+			continue
+		}
+		if rate, err := normalizeRate(r.RateKZT.String()); err == nil {
+			sess.marketRate = rate
+			if t, err := time.Parse(time.RFC3339Nano, r.FetchedAt); err == nil {
+				fetchedAt = formatDay(t.In(a.cfg.Location).Format(time.DateOnly))
+			}
+		}
+		break
+	}
+	a.sessions.set(userID, sess)
+
+	text := draftText(sess) + "\n\nСчёт в " + escape(cur) + ". Сколько тенге стоит 1 " + escape(cur) +
+		"?\nНапишите курс, например <code>478,5</code>"
+	if sess.marketRate != "" {
+		text += ", или возьмите курс из приложения кнопкой"
+	}
+	a.show(ctx, chatID, msgID, text+".", rateKeyboard(sess, fetchedAt))
+}
+
+func rateKeyboard(sess session, fetchedAt string) *models.InlineKeyboardMarkup {
+	var rows [][]models.InlineKeyboardButton
+	if sess.marketRate != "" {
+		label := "📈 1 " + sess.account.Currency + " = " + formatMoney(sess.marketRate, backend.BaseCurrency)
+		if fetchedAt != "" {
+			label += " (на " + fetchedAt + ")"
+		}
+		rows = append(rows, []models.InlineKeyboardButton{{Text: label, CallbackData: cbRate}})
+	}
+	rows = append(rows, cancelRow())
+	return &models.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func (a *App) onRate(ctx context.Context, chatID, userID int64, sess session, text string) {
+	rate, err := parseRate(text)
+	if err != nil {
+		a.sessions.set(userID, sess)
+		a.send(ctx, chatID, "Не понял курс. Напишите только число тенге за 1 "+escape(sess.account.Currency)+
+			", например <code>478,5</code>.", rateKeyboard(sess, ""))
+		return
+	}
+	sess.rate = rate
+	a.afterAccount(ctx, chatID, 0, userID, sess)
+}
+
+// onMarketRate takes the stored rate offered by askRate's button.
+func (a *App) onMarketRate(ctx context.Context, cq *models.CallbackQuery, chatID int64, msgID int, userID int64) {
+	sess := a.sessions.get(userID)
+	if sess.step != stepRate || sess.marketRate == "" {
+		a.answer(ctx, cq.ID, "Эта кнопка уже неактуальна. Начните заново.", true)
+		return
+	}
+	a.answer(ctx, cq.ID, "", false)
+	sess.rate = sess.marketRate
+	a.afterAccount(ctx, chatID, msgID, userID, sess)
 }
 
 func (a *App) askCategory(ctx context.Context, chatID int64, msgID int, userID int64, sess session) {
@@ -186,14 +267,18 @@ func (a *App) createTransaction(ctx context.Context, chatID int64, msgID int, us
 	a.sessions.clear(userID)
 
 	req := backend.CreateTransactionRequest{
-		Type:       sess.txType,
-		AccountID:  sess.account.ID,
-		Amount:     sess.amount,
-		OccurredOn: a.today().Format(time.DateOnly),
-		Note:       sess.note,
+		Type:         sess.txType,
+		AccountID:    sess.account.ID,
+		Amount:       sess.amount,
+		OccurredOn:   a.today().Format(time.DateOnly),
+		ExchangeRate: sess.rate,
+		Note:         sess.note,
 	}
 	if sess.category != nil {
 		req.CategoryID = sess.category.ID
+	}
+	if sess.topic != nil {
+		req.TopicID = sess.topic.ID
 	}
 	if sess.toAccount != nil {
 		req.ToAccountID = sess.toAccount.ID
@@ -218,7 +303,11 @@ func (a *App) createTransaction(ctx context.Context, chatID int64, msgID int, us
 	default:
 		b.WriteString("✅ Расход записан\n")
 	}
-	b.WriteString("<b>" + formatMoney(tx.Amount, tx.Currency) + "</b> · " + escape(sess.account.Name))
+	b.WriteString("<b>" + formatMoney(tx.Amount, tx.Currency) + "</b>")
+	if tx.Currency != backend.BaseCurrency && tx.AmountKZT != "" {
+		b.WriteString(" (≈ " + formatMoney(tx.AmountKZT, backend.BaseCurrency) + ")")
+	}
+	b.WriteString(" · " + escape(sess.account.Name))
 	if sess.toAccount != nil {
 		b.WriteString(" → " + escape(sess.toAccount.Name))
 		if sess.toAmount != "" {
@@ -227,6 +316,9 @@ func (a *App) createTransaction(ctx context.Context, chatID int64, msgID int, us
 	}
 	if sess.category != nil {
 		b.WriteString("\nКатегория: " + escape(categoryLabel(*sess.category, sess.categories)))
+	}
+	if sess.topic != nil {
+		b.WriteString("\n🧳 " + escape(sess.topic.Name))
 	}
 	if sess.note != "" {
 		b.WriteString("\n💬 " + escape(sess.note))
@@ -252,6 +344,12 @@ func draftText(sess session) string {
 	}
 	if sess.toAccount != nil {
 		b.WriteString(" → " + escape(sess.toAccount.Name))
+	}
+	if sess.rate != "" {
+		b.WriteString("\nКурс: 1 " + escape(sess.account.Currency) + " = " + formatMoney(sess.rate, backend.BaseCurrency))
+	}
+	if sess.topic != nil {
+		b.WriteString("\n🧳 " + escape(sess.topic.Name))
 	}
 	if sess.note != "" {
 		b.WriteString("\n💬 " + escape(sess.note))

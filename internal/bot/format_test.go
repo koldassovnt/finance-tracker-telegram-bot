@@ -117,3 +117,38 @@ func TestRenderPurchasesCallbackDataFits(t *testing.T) {
 		}
 	}
 }
+
+func TestTopicAndRateText(t *testing.T) {
+	topic := backend.Topic{ID: "77777777-7777-7777-7777-777777777777", Name: "Турция <2026>", Spent: "350000.0000", PlannedAmount: "500000.0000", Remaining: "150000.0000"}
+	header := topicHeader(topic)
+	for _, want := range []string{"Турция &lt;2026&gt;", "Потрачено: 350\u00a0000 ₸ из 500\u00a0000 ₸", "Осталось: 150\u00a0000 ₸"} {
+		if !strings.Contains(header, want) {
+			t.Errorf("topic header missing %q:\n%s", want, header)
+		}
+	}
+	if h := topicHeader(backend.Topic{Name: "Ремонт", Spent: "0.0000"}); strings.Contains(h, " из ") || strings.Contains(h, "Осталось") {
+		t.Errorf("topic header without a plan mentions one:\n%s", h)
+	}
+	if data := topicsKeyboard([]backend.Topic{topic}).InlineKeyboard[0][0].CallbackData; data != "tp:"+topic.ID {
+		t.Errorf("topic callback data %q", data)
+	}
+
+	acc := backend.Account{ID: "88888888-8888-8888-8888-888888888888", Name: "Наличные", Currency: "USD"}
+	sess := session{txType: backend.TypeExpense, amount: "25", account: &acc, rate: "478.5", topic: &topic}
+	draft := draftText(sess)
+	for _, want := range []string{"25 $", "Курс: 1 USD = 478,50 ₸", "🧳 Турция &lt;2026&gt;"} {
+		if !strings.Contains(draft, want) {
+			t.Errorf("draft missing %q:\n%s", want, draft)
+		}
+	}
+
+	sess.marketRate = "478.12"
+	kb := rateKeyboard(sess, "19.10")
+	if btn := kb.InlineKeyboard[0][0]; btn.CallbackData != cbRate || btn.Text != "📈 1 USD = 478,12 ₸ (на 19.10)" {
+		t.Errorf("market rate button = %+v", btn)
+	}
+	sess.marketRate = ""
+	if kb := rateKeyboard(sess, ""); len(kb.InlineKeyboard) != 1 || kb.InlineKeyboard[0][0].CallbackData != cbCancel {
+		t.Errorf("without a market rate the keyboard should only cancel: %+v", kb.InlineKeyboard)
+	}
+}
