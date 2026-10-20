@@ -226,6 +226,16 @@ func IsNotLinked(err error) bool {
 	return errors.As(err, &e) && e.Code == CodeTelegramNotLinked
 }
 
+// HasFieldError reports whether err is an APIError that rejects field.
+func HasFieldError(err error, field string) bool {
+	var e *APIError
+	if !errors.As(err, &e) {
+		return false
+	}
+	_, ok := e.FieldErrors[field]
+	return ok
+}
+
 // HasStatus reports whether err is an APIError with the given HTTP status.
 func HasStatus(err error, status int) bool {
 	var e *APIError

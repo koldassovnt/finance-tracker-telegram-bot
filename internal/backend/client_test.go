@@ -112,3 +112,22 @@ func TestCreateTransactionOmitsEmptyFields(t *testing.T) {
 		t.Errorf("got %s; want %s", b, want)
 	}
 }
+
+func TestHasFieldError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"code":"VALIDATION_FAILED","message":"is required for a USD account","fieldErrors":{"exchangeRate":"is required for a USD account"}}`))
+	}))
+	defer srv.Close()
+
+	_, err := New(srv.URL, "secret").CreateTransaction(context.Background(), 1, CreateTransactionRequest{Type: TypeTransfer})
+	if !HasFieldError(err, "exchangeRate") {
+		t.Errorf("HasFieldError(exchangeRate) false for %v", err)
+	}
+	if HasFieldError(err, "amount") {
+		t.Error("HasFieldError(amount) true for an error that only names exchangeRate")
+	}
+	if HasFieldError(context.DeadlineExceeded, "exchangeRate") {
+		t.Error("HasFieldError true for a non-API error")
+	}
+}

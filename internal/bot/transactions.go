@@ -131,13 +131,21 @@ func (a *App) onTransactionChoice(ctx context.Context, cq *models.CallbackQuery,
 
 // afterAccount continues once the source account is known: its KZT rate if it
 // is in another currency, then the destination (transfer) or category.
+//
+// A transfer skips the rate: the backend derives it from the amounts or its
+// stored rate, and createTransaction asks only when it can't. Asked then, the
+// destination is already chosen and the transfer is recorded straight away.
 func (a *App) afterAccount(ctx context.Context, chatID int64, msgID int, userID int64, sess session) {
-	if sess.account.Currency != backend.BaseCurrency && sess.rate == "" {
-		a.askRate(ctx, chatID, msgID, userID, sess)
+	if sess.txType != backend.TypeTransfer {
+		if sess.account.Currency != backend.BaseCurrency && sess.rate == "" {
+			a.askRate(ctx, chatID, msgID, userID, sess)
+			return
+		}
+		a.askCategory(ctx, chatID, msgID, userID, sess)
 		return
 	}
-	if sess.txType != backend.TypeTransfer {
-		a.askCategory(ctx, chatID, msgID, userID, sess)
+	if sess.toAccount != nil {
+		a.createTransaction(ctx, chatID, msgID, userID, sess)
 		return
 	}
 	sess.step = stepToAccount
@@ -286,6 +294,11 @@ func (a *App) createTransaction(ctx context.Context, chatID int64, msgID int, us
 	}
 
 	tx, err := a.api.CreateTransaction(ctx, userID, req)
+	if err != nil && sess.txType == backend.TypeTransfer && sess.rate == "" && backend.HasFieldError(err, "exchangeRate") {
+		// Nothing was recorded: the backend had no rate to fill in.
+		a.askRate(ctx, chatID, msgID, userID, sess)
+		return
+	}
 	if err != nil {
 		if msgID != 0 {
 			a.edit(ctx, chatID, msgID, draftText(sess)+"\n\n❌ Не записано.", nil)
