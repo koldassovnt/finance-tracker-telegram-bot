@@ -15,6 +15,7 @@ const (
 	actBills
 	actShopping
 	actSummary
+	actBalance
 )
 
 // Main menu buttons; their text is what Telegram sends back when tapped.
@@ -25,6 +26,7 @@ const (
 	btnBills    = "📅 Платежи"
 	btnShopping = "🛒 Покупки"
 	btnSummary  = "📊 Итоги месяца"
+	btnBalance  = "💰 Баланс"
 )
 
 var menuActions = map[string]action{
@@ -34,6 +36,7 @@ var menuActions = map[string]action{
 	btnBills:    actBills,
 	btnShopping: actShopping,
 	btnSummary:  actSummary,
+	btnBalance:  actBalance,
 }
 
 var commandActions = map[string]action{
@@ -43,6 +46,7 @@ var commandActions = map[string]action{
 	"bills":    actBills,
 	"shop":     actShopping,
 	"summary":  actSummary,
+	"balance":  actBalance,
 }
 
 var commands = []models.BotCommand{
@@ -52,6 +56,7 @@ var commands = []models.BotCommand{
 	{Command: "bills", Description: "Неоплаченные платежи"},
 	{Command: "shop", Description: "Список покупок"},
 	{Command: "summary", Description: "Итоги месяца"},
+	{Command: "balance", Description: "Баланс счёта"},
 	{Command: "cancel", Description: "Отменить текущее действие"},
 	{Command: "start", Description: "Привязать аккаунт"},
 	{Command: "help", Description: "Что умеет бот"},
@@ -61,14 +66,14 @@ var mainMenu = &models.ReplyKeyboardMarkup{
 	Keyboard: [][]models.KeyboardButton{
 		{{Text: btnExpense}, {Text: btnIncome}, {Text: btnTransfer}},
 		{{Text: btnBills}, {Text: btnShopping}},
-		{{Text: btnSummary}},
+		{{Text: btnSummary}, {Text: btnBalance}},
 	},
 	ResizeKeyboard: true,
 	IsPersistent:   true,
 }
 
 // Callback data prefixes, "<kind>:<arg>". Telegram caps callback data at 64
-// bytes; the longest here is "p:t:" plus a 36-character UUID.
+// bytes; the longest here is "bal:" or "p:t:" plus a 36-character UUID.
 const (
 	cbCancel    = "x"
 	cbAccount   = "a"
@@ -76,6 +81,7 @@ const (
 	cbCategory  = "c"
 	cbBillPaid  = "b"
 	cbPurchase  = "p"
+	cbBalance   = "bal"
 )
 
 // noCategory is the cbCategory argument for "no category".
@@ -89,6 +95,7 @@ const helpText = `<b>Что умеет бот</b>
 📅 <b>Платежи</b>: неоплаченные платежи до конца месяца, отметка «оплачено».
 🛒 <b>Покупки</b>: семейный и личный списки.
 📊 <b>Итоги месяца</b>: доходы, расходы и крупнейшие категории.
+💰 <b>Баланс</b>: текущий остаток на выбранном счёте.
 
 Каждый день в %s я пишу, какие платежи нужно оплатить сегодня.
 /cancel отменяет текущее действие.`

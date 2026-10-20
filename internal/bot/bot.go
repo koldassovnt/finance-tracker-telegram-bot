@@ -190,6 +190,8 @@ func (a *App) runAction(ctx context.Context, chatID, userID int64, act action) {
 		a.showPurchases(ctx, chatID, 0, userID)
 	case actSummary:
 		a.showSummary(ctx, chatID, userID)
+	case actBalance:
+		a.showBalancePicker(ctx, chatID, 0, userID)
 	}
 }
 
@@ -213,6 +215,8 @@ func (a *App) onCallback(ctx context.Context, cq *models.CallbackQuery) {
 		a.onBillPaid(ctx, cq, msg, userID, arg)
 	case cbPurchase:
 		a.onPurchaseCallback(ctx, cq, chatID, msgID, userID, arg)
+	case cbBalance:
+		a.onBalanceCallback(ctx, cq, chatID, msgID, userID, arg)
 	default:
 		a.answer(ctx, cq.ID, "Неизвестная кнопка.", false)
 	}

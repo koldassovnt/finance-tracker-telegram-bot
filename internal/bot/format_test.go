@@ -61,6 +61,41 @@ func TestReminderEscapesNames(t *testing.T) {
 	}
 }
 
+func TestRenderBalance(t *testing.T) {
+	accounts := []backend.Account{
+		{ID: "55555555-5555-5555-5555-555555555555", Name: "Kaspi <Gold>", Currency: "KZT", Balance: "1250000.5000"},
+		{ID: "66666666-6666-6666-6666-666666666666", Name: "Наличные $", Currency: "USD", Balance: "-20.0000"},
+	}
+
+	_, kb := renderBalancePicker(accounts)
+	var data []string
+	for _, row := range kb.InlineKeyboard {
+		for _, btn := range row {
+			if len(btn.CallbackData) > 64 {
+				t.Errorf("callback data %q exceeds 64 bytes", btn.CallbackData)
+			}
+			data = append(data, btn.CallbackData)
+		}
+	}
+	if len(data) != 2 || data[0] != "bal:"+accounts[0].ID || data[1] != "bal:"+accounts[1].ID {
+		t.Errorf("picker callback data = %q", data)
+	}
+
+	now := time.Date(2026, 10, 20, 9, 5, 0, 0, time.UTC)
+	text, kb := renderBalance(accounts[0], true, now)
+	for _, want := range []string{"Kaspi &lt;Gold&gt;", "1 250 000,50 ₸", "20 октября, 09:05"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("balance text missing %q:\n%s", want, text)
+		}
+	}
+	if row := kb.InlineKeyboard[0]; len(row) != 2 || row[0].CallbackData != "bal:"+accounts[0].ID || row[1].CallbackData != "bal:all" {
+		t.Errorf("balance buttons = %+v", row)
+	}
+	if text, kb := renderBalance(accounts[1], false, now); !strings.Contains(text, "-20 $") || len(kb.InlineKeyboard[0]) != 1 {
+		t.Errorf("single-account balance: text %q, buttons %+v", text, kb.InlineKeyboard)
+	}
+}
+
 func TestRenderPurchasesCallbackDataFits(t *testing.T) {
 	items := []backend.PlannedPurchase{
 		{ID: "22222222-2222-2222-2222-222222222222", Name: "Хлеб", IsFamily: true, IsBought: true},
